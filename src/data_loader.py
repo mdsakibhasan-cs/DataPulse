@@ -13,7 +13,7 @@ ZIP_FILE = DATA_DIR / "online_retail_ii.zip"
 
 
 def ensure_dataset():
-    """Download and extract the UCI dataset if it is not available."""
+    """Download and locate the UCI Online Retail II Excel dataset."""
     DATA_DIR.mkdir(exist_ok=True)
 
     if DATA_FILE.exists():
@@ -24,12 +24,18 @@ def ensure_dataset():
     with zipfile.ZipFile(ZIP_FILE, "r") as zip_ref:
         zip_ref.extractall(DATA_DIR)
 
-    downloaded_excel = DATA_DIR / "online_retail_II.xlsx"
+    # Find the Excel file regardless of the filename used inside the ZIP.
+    excel_files = list(DATA_DIR.glob("*.xlsx"))
 
-    if not downloaded_excel.exists():
+    if not excel_files:
         raise FileNotFoundError(
-            "Dataset download completed, but online_retail_II.xlsx was not found."
+            "Dataset ZIP was downloaded, but no Excel file was found."
         )
+
+    downloaded_excel = excel_files[0]
+
+    if downloaded_excel != DATA_FILE:
+        downloaded_excel.rename(DATA_FILE)
 
     if ZIP_FILE.exists():
         ZIP_FILE.unlink()
@@ -49,12 +55,10 @@ def load_raw_data():
         sheet_name="Year 2010-2011"
     )
 
-    df = pd.concat(
+    return pd.concat(
         [sheet_1, sheet_2],
         ignore_index=True
     )
-
-    return df
 
 
 def clean_sales_data(df):
@@ -70,9 +74,7 @@ def clean_sales_data(df):
         & (~data["Invoice"].str.startswith("C"))
     ].copy()
 
-    data["TotalAmount"] = (
-        data["Quantity"] * data["Price"]
-    )
+    data["TotalAmount"] = data["Quantity"] * data["Price"]
 
     return data
 
