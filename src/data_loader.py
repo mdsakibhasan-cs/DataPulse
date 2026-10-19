@@ -1,17 +1,58 @@
 import pandas as pd
 from pathlib import Path
+import urllib.request
+import zipfile
 
 
-DATA_FILE = Path("data/online_retail_II.xlsx")
-CLEAN_FILE = Path("data/cleaned_sales.csv")
+DATA_DIR = Path("data")
+DATA_FILE = DATA_DIR / "online_retail_II.xlsx"
+CLEAN_FILE = DATA_DIR / "cleaned_sales.csv"
+
+DATA_URL = "https://archive.ics.uci.edu/static/public/502/online+retail+ii.zip"
+ZIP_FILE = DATA_DIR / "online_retail_ii.zip"
+
+
+def ensure_dataset():
+    """Download and extract the UCI dataset if it is not available."""
+    DATA_DIR.mkdir(exist_ok=True)
+
+    if DATA_FILE.exists():
+        return
+
+    urllib.request.urlretrieve(DATA_URL, ZIP_FILE)
+
+    with zipfile.ZipFile(ZIP_FILE, "r") as zip_ref:
+        zip_ref.extractall(DATA_DIR)
+
+    downloaded_excel = DATA_DIR / "online_retail_II.xlsx"
+
+    if not downloaded_excel.exists():
+        raise FileNotFoundError(
+            "Dataset download completed, but online_retail_II.xlsx was not found."
+        )
+
+    if ZIP_FILE.exists():
+        ZIP_FILE.unlink()
 
 
 def load_raw_data():
     """Load and combine both yearly sheets from the original Excel file."""
-    sheet_1 = pd.read_excel(DATA_FILE, sheet_name="Year 2009-2010")
-    sheet_2 = pd.read_excel(DATA_FILE, sheet_name="Year 2010-2011")
+    ensure_dataset()
 
-    df = pd.concat([sheet_1, sheet_2], ignore_index=True)
+    sheet_1 = pd.read_excel(
+        DATA_FILE,
+        sheet_name="Year 2009-2010"
+    )
+
+    sheet_2 = pd.read_excel(
+        DATA_FILE,
+        sheet_name="Year 2010-2011"
+    )
+
+    df = pd.concat(
+        [sheet_1, sheet_2],
+        ignore_index=True
+    )
 
     return df
 
@@ -29,7 +70,9 @@ def clean_sales_data(df):
         & (~data["Invoice"].str.startswith("C"))
     ].copy()
 
-    data["TotalAmount"] = data["Quantity"] * data["Price"]
+    data["TotalAmount"] = (
+        data["Quantity"] * data["Price"]
+    )
 
     return data
 
@@ -37,12 +80,18 @@ def clean_sales_data(df):
 def load_clean_data():
     """Load cleaned data, creating it from the raw dataset if necessary."""
     if CLEAN_FILE.exists():
-        return pd.read_csv(CLEAN_FILE, parse_dates=["InvoiceDate"])
+        return pd.read_csv(
+            CLEAN_FILE,
+            parse_dates=["InvoiceDate"]
+        )
 
     raw_data = load_raw_data()
     clean_data = clean_sales_data(raw_data)
 
-    clean_data.to_csv(CLEAN_FILE, index=False)
+    clean_data.to_csv(
+        CLEAN_FILE,
+        index=False
+    )
 
     return clean_data
 
@@ -53,5 +102,12 @@ if __name__ == "__main__":
     print("DataPulse data loader successful.")
     print(f"Rows: {len(df):,}")
     print(f"Columns: {len(df.columns)}")
-    print(f"Date range: {df['InvoiceDate'].min()} to {df['InvoiceDate'].max()}")
-    print(f"Total revenue: {df['TotalAmount'].sum():,.2f}")
+    print(
+        f"Date range: "
+        f"{df['InvoiceDate'].min()} "
+        f"to {df['InvoiceDate'].max()}"
+    )
+    print(
+        f"Total revenue: "
+        f"{df['TotalAmount'].sum():,.2f}"
+    )
